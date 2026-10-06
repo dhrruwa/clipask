@@ -1,0 +1,9 @@
+rumps>=0.4.0
+pynput>=1.8.1
+keyring>=25.0
+requests>=2.31
+# PyObjC: lets Python use macOS frameworks. rumps and pynput already pull
+# these in; they're listed because ClipAsk also imports them directly.
+pyobjc-framework-Cocoa>=10.0
+pyobjc-framework-Quartz>=10.0
+pyobjc-framework-ApplicationServices>=10.0
