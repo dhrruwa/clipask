@@ -185,6 +185,7 @@ Tips:
 
 ## Troubleshooting
 
+- **Installer error mentioning `ensurepip`.** An older installer used whichever Python came first on the Mac (for example Homebrew's), and some of those can't set up pip. Run the install command again: it now uses Apple's own Python and replaces the unfinished environment automatically.
 - **⌃⌥A does nothing.** Check section 2 (right app, both permissions, restart). Use **Ask About Clipboard** in the menu to test everything else.
 - **"ClipAsk can't type for you yet".** Turn on the Accessibility permission (section 2) and restart ClipAsk.
 - **It answered the wrong text.** ClipAsk answers whatever you copied last. Copying anything else in between (even an error message) replaces your question.

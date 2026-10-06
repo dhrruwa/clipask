@@ -52,9 +52,22 @@ fi
 cd "$INSTALL_DIR"
 
 # 3. Python environment and libraries.
-if [ ! -x .venv/bin/python ]; then
+#
+# We always use Apple's Python from the Command Line Tools (/usr/bin/python3),
+# not whichever `python3` comes first on this Mac. Other Pythons (Homebrew,
+# pyenv, python.org) differ from Mac to Mac, and some can't build ClipAsk's
+# environment; Apple's is the same everywhere and is what ClipAsk is tested on.
+PYTHON=/usr/bin/python3
+
+# An earlier failed attempt can leave a half-made environment without a
+# working pip. If so, delete it and start again.
+if [ -d .venv ] && ! .venv/bin/python -m pip --version >/dev/null 2>&1; then
+    say "Removing an unfinished Python environment from an earlier attempt"
+    rm -rf .venv
+fi
+if [ ! -d .venv ]; then
     say "Creating ClipAsk's Python environment"
-    python3 -m venv .venv
+    "$PYTHON" -m venv .venv || fail "Couldn't create a Python environment with $PYTHON."
 fi
 # A copy of requirements.txt is kept in .venv after installing, so we only
 # run pip again when the list of libraries has changed.
