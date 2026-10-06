@@ -13,8 +13,11 @@ A tiny macOS menu-bar app: copy a question, click where you want the answer, pre
 On each Mac you use, open **Terminal** and paste:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/dhrruwa/clipask/main/install.sh | bash
+curl -sL dhrruwa.github.io/clipask | sh
 ```
+
+`curl` downloads the installer and `| sh` runs it. If that address ever doesn't work, the long form does the same:
+`curl -fsSL https://raw.githubusercontent.com/dhrruwa/clipask/main/install.sh | bash`
 
 This downloads ClipAsk into `~/.clipask` and installs what it needs (about a minute the first time). It then starts ClipAsk and adds a short **`clipask`** command.
 
@@ -45,6 +48,7 @@ The rest of this README covers the same setup step by step, and how to build a s
 | `settings.py` | Saves your provider, model, system prompt, output choice and typing speed, keeps API keys in the Keychain, and handles Start at Login. |
 | `setup.py` | Instructions for `py2app` to build `ClipAsk.app`. |
 | `install.sh` | The one-command installer: downloads or updates ClipAsk, sets it up, adds the `clipask` command and starts it. |
+| `docs/index.html` | The short starter script served at `dhrruwa.github.io/clipask` (GitHub Pages). It just runs `install.sh`. |
 
 Every module starts with a plain-English explanation of how it works.
 

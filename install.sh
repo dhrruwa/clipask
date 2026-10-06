@@ -3,7 +3,11 @@
 #
 # First time on a Mac, paste this into Terminal:
 #
-#     curl -fsSL https://raw.githubusercontent.com/dhrruwa/clipask/main/install.sh | bash
+#     curl -sL dhrruwa.github.io/clipask | sh
+#
+# (That short address is a GitHub Pages site that runs this file; see
+# docs/index.html. The long form also works:
+#     curl -fsSL https://raw.githubusercontent.com/dhrruwa/clipask/main/install.sh | bash )
 #
 # After that, open a new Terminal window and just type:  clipask
 #
