@@ -3,6 +3,7 @@ app.py - the main program. Start ClipAsk with:
 
     python app.py                 (runs while this Terminal window is open)
     python app.py --background    (keeps running after you close Terminal)
+    python app.py --ask-api-key   (saves an API key from Terminal, if none is saved)
 
 Only one ClipAsk runs at a time: starting a new one stops the old one.
 
@@ -509,9 +510,40 @@ def become_the_only_copy():
     return pid_file
 
 
+def ask_for_api_key_in_terminal():
+    """
+    `python app.py --ask-api-key` (used by install.sh): if this Mac has no
+    API key saved for the chosen provider, ask for one in Terminal and save
+    it in the Keychain. getpass hides what you paste, like a password.
+    """
+    import getpass
+
+    provider = settings.load_settings().provider
+    info = ai_client.PROVIDERS[provider]
+    try:
+        if settings.get_api_key(provider):
+            print(f"A {info.label} API key is already saved on this Mac.")
+            return
+        print(f"No {info.label} API key is saved on this Mac yet. You can create one at {info.key_url}")
+        try:
+            key = getpass.getpass("Paste your key and press Return (it won't be shown; Return alone skips): ").strip()
+        except (EOFError, KeyboardInterrupt):
+            key = ""
+        if not key:
+            print(f"Skipped. You can add it later: ClipAsk menu → {info.label} API Key…")
+            return
+        settings.set_api_key(provider, key)
+        print("Saved in this Mac's Keychain.")
+    except settings.SettingsError as error:
+        print(error)
+
+
 def main():
     if "--background" in sys.argv:
         start_in_background()
+        return
+    if "--ask-api-key" in sys.argv:
+        ask_for_api_key_in_terminal()
         return
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")

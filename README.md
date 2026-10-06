@@ -19,13 +19,15 @@ curl -sL dhrruwa.github.io/clipask | sh
 `curl` downloads the installer and `| sh` runs it. If that address ever doesn't work, the long form does the same:
 `curl -fsSL https://raw.githubusercontent.com/dhrruwa/clipask/main/install.sh | bash`
 
-This downloads ClipAsk into `~/.clipask` and installs what it needs (about a minute the first time). It then starts ClipAsk and adds a short **`clipask`** command.
+This downloads ClipAsk into `~/.clipask` and installs what it needs (about a minute the first time). If this Mac has no API key saved yet, it asks you to paste one; what you paste stays hidden and is saved in this Mac's Keychain. It then starts ClipAsk and adds a short **`clipask`** command.
 
 Once per Mac, after the first run:
 
 1. **System Settings → Privacy & Security → Input Monitoring**: turn on **Terminal**. Do the same under **Accessibility**.
 2. Open a new Terminal window and type `clipask` to restart ClipAsk with the permissions.
-3. Click **ClipAsk** in the menu bar → **Google Gemini API Key…** and paste your key. Each Mac keeps its own key in its own Keychain.
+3. If you skipped the API key, click **ClipAsk** in the menu bar → **Google Gemini API Key…** and paste it there.
+
+Each Mac keeps its own copy of the key in its own Keychain, so you paste it once per Mac. A handy place to keep the key is Apple's **Passwords** app, which syncs it across your Macs through iCloud. Never put the key in the GitHub repo: it's public.
 
 From then on, typing **`clipask`** in any new Terminal window updates ClipAsk from GitHub and (re)starts it. Without internet it skips the update and starts the version it has.
 

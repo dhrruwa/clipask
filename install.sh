@@ -19,7 +19,9 @@
 #   3. Creates ClipAsk's private Python environment and installs its
 #      libraries. This only happens the first time or when they change.
 #   4. Adds the short `clipask` command to your shell (once).
-#   5. Starts ClipAsk in the background, so it keeps running after you
+#   5. Asks for your API key if this Mac doesn't have one saved yet, and
+#      saves it in the Keychain.
+#   6. Starts ClipAsk in the background, so it keeps running after you
 #      close Terminal. A copy that's already running is stopped first.
 #
 # Settings for testing: CLIPASK_DIR (install folder), CLIPASK_REPO (where to
@@ -92,7 +94,15 @@ if ! grep -q "alias clipask=" "$SHELL_FILE" 2>/dev/null; then
     } >> "$SHELL_FILE"
 fi
 
-# 5. Start it.
+# 5. API key: asked for once per Mac, if none is saved in its Keychain yet.
+# With `curl ... | sh`, the script itself arrives on standard input, so the
+# question is asked on the Terminal directly (/dev/tty). Without a Terminal
+# (e.g. in automated tests) this step is skipped.
+if ( : < /dev/tty ) 2>/dev/null; then
+    .venv/bin/python app.py --ask-api-key < /dev/tty 2>/dev/null || true
+fi
+
+# 6. Start it.
 if [ "${CLIPASK_NO_START:-}" = "1" ]; then
     say "Set up finished (not starting, because CLIPASK_NO_START=1)"
     exit 0
@@ -108,7 +118,7 @@ First time on this Mac:
   1. System Settings → Privacy & Security → Input Monitoring: turn on Terminal.
   2. Same under Accessibility: turn on Terminal.
   3. Open a new Terminal window and type:  clipask   (restarts it with the permissions)
-  4. Menu bar → ClipAsk → "Google Gemini API Key…" and paste your key.
+  4. If you skipped the API key: menu bar → ClipAsk → "Google Gemini API Key…".
 
 From now on, type  clipask  in any new Terminal window to update and restart it.
 EOF
