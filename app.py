@@ -1,5 +1,10 @@
 """
-app.py - the main program. Start ClipAsk with:  python app.py
+app.py - the main program. Start ClipAsk with:
+
+    python app.py                 (runs while this Terminal window is open)
+    python app.py --background    (keeps running after you close Terminal)
+
+Only one ClipAsk runs at a time: starting a new one stops the old one.
 
 What this module does, in simple words:
     It creates the menu-bar item and its menu (using the `rumps` library)
@@ -34,8 +39,14 @@ Why the main thread matters:
     which means "run this function on the main thread as soon as it's free".
 """
 
+import fcntl
 import logging
+import os
+import signal
+import subprocess
+import sys
 import threading
+import time
 
 import rumps
 from AppKit import NSApp, NSApplication, NSApplicationActivationPolicyAccessory
@@ -430,8 +441,81 @@ class ClipAskApp(rumps.App):
             self.popup.show(PERMISSION_HELP, title="ClipAsk needs a permission")
 
 
+# ----------------------------------------------------------------------
+# Running in the background, and only once
+# ----------------------------------------------------------------------
+
+# While ClipAsk runs, it keeps this file locked and writes its process ID
+# (PID) in it, so a newly started copy can find it.
+PID_FILE = os.path.join(settings.SUPPORT_FOLDER, "clipask.pid")
+
+
+def start_in_background():
+    """
+    Start a separate ClipAsk that keeps running after you close Terminal,
+    then return straight away. Its messages go to the log file.
+
+    start_new_session=True detaches it from the Terminal window, so closing
+    the window doesn't stop it.
+    """
+    os.makedirs(os.path.dirname(settings.LOG_FILE), exist_ok=True)
+    with open(settings.LOG_FILE, "a") as log_file:
+        subprocess.Popen(
+            [sys.executable, os.path.abspath(__file__)],
+            stdin=subprocess.DEVNULL,
+            stdout=log_file,
+            stderr=log_file,
+            start_new_session=True,
+        )
+    print(f"ClipAsk is starting in the menu bar. Its log is {settings.LOG_FILE}")
+
+
+def become_the_only_copy():
+    """
+    Make sure only one ClipAsk runs (two copies would both type every answer).
+
+    If another copy is already running, stop it: the newest copy wins, so
+    starting ClipAsk again also restarts it with the latest code.
+
+    How: the running copy keeps PID_FILE locked. macOS releases the lock
+    automatically when that copy ends, even if it crashed. So if we can't
+    get the lock, another copy is alive, and its PID is in the file.
+    Returns the open file, which must stay open to keep the lock.
+    """
+    os.makedirs(settings.SUPPORT_FOLDER, exist_ok=True)
+    pid_file = open(PID_FILE, "a+")
+    asked_to_stop = False
+    for _ in range(50):  # try for up to 5 seconds
+        try:
+            fcntl.flock(pid_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            break  # got the lock: we're the only copy now
+        except BlockingIOError:
+            pid_file.seek(0)
+            other_pid = pid_file.read().strip()
+            if other_pid.isdigit() and not asked_to_stop:
+                log.info("Stopping the ClipAsk that was already running (PID %s)", other_pid)
+                try:
+                    os.kill(int(other_pid), signal.SIGTERM)
+                except ProcessLookupError:
+                    pass
+                asked_to_stop = True
+            time.sleep(0.1)
+    else:
+        sys.exit("Another ClipAsk is running and couldn't be stopped. Quit it from the menu bar and try again.")
+    pid_file.seek(0)
+    pid_file.truncate()
+    pid_file.write(str(os.getpid()))
+    pid_file.flush()
+    return pid_file
+
+
 def main():
+    if "--background" in sys.argv:
+        start_in_background()
+        return
+
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    pid_file = become_the_only_copy()  # keep this variable: the open file holds the lock
     # Menu-bar only: no Dock icon. (The packaged .app also sets LSUIElement
     # in its Info.plist; this line covers running `python app.py`.)
     NSApplication.sharedApplication().setActivationPolicy_(NSApplicationActivationPolicyAccessory)

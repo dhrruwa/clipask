@@ -45,7 +45,7 @@ LAUNCH_AGENT_LABEL = "com.clipask.app"
 LAUNCH_AGENT_FILE = os.path.expanduser(f"~/Library/LaunchAgents/{LAUNCH_AGENT_LABEL}.plist")
 LOG_FILE = os.path.expanduser("~/Library/Logs/ClipAsk.log")
 
-DEFAULT_PROVIDER = "openai"
+DEFAULT_PROVIDER = "gemini"
 
 # What happens to the answer: "type" types it into the app you're using,
 # "popup" shows it in the floating window.

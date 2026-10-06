@@ -8,6 +8,30 @@ A tiny macOS menu-bar app: copy a question, click where you want the answer, pre
 - Your API key is stored in the **macOS Keychain**, never in a plain file.
 - Errors always appear in a small floating window, never typed into your document. The window scrolls if the text is long. **Esc** closes it, **⌘C** or the **Copy** button copies it.
 
+## Quick start: one command on any Mac
+
+On each Mac you use, open **Terminal** and paste:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/dhrruwa/clipask/main/install.sh | bash
+```
+
+This downloads ClipAsk into `~/.clipask` and installs what it needs (about a minute the first time). It then starts ClipAsk and adds a short **`clipask`** command.
+
+Once per Mac, after the first run:
+
+1. **System Settings → Privacy & Security → Input Monitoring**: turn on **Terminal**. Do the same under **Accessibility**.
+2. Open a new Terminal window and type `clipask` to restart ClipAsk with the permissions.
+3. Click **ClipAsk** in the menu bar → **Google Gemini API Key…** and paste your key. Each Mac keeps its own key in its own Keychain.
+
+From then on, typing **`clipask`** in any new Terminal window updates ClipAsk from GitHub and (re)starts it. Without internet it skips the update and starts the version it has.
+
+- ClipAsk keeps running after you close Terminal.
+- Only one ClipAsk runs at a time: starting it again replaces the running copy, so answers are never typed twice.
+- Messages and errors go to `~/Library/Logs/ClipAsk.log`.
+
+The rest of this README covers the same setup step by step, and how to build a standalone `ClipAsk.app`.
+
 ## What's in the folder
 
 | File | What it does |
@@ -20,6 +44,7 @@ A tiny macOS menu-bar app: copy a question, click where you want the answer, pre
 | `popup.py` | The floating window for errors, or for answers if you choose "Show in Popup" (Copy / Close buttons, scrolling, Esc to close). |
 | `settings.py` | Saves your provider, model, system prompt, output choice and typing speed, keeps API keys in the Keychain, and handles Start at Login. |
 | `setup.py` | Instructions for `py2app` to build `ClipAsk.app`. |
+| `install.sh` | The one-command installer: downloads or updates ClipAsk, sets it up, adds the `clipask` command and starts it. |
 
 Every module starts with a plain-English explanation of how it works.
 
@@ -170,6 +195,6 @@ When you press ⌃⌥A, the text on your clipboard is sent to the provider you c
 ## Uninstall
 
 1. Quit ClipAsk and turn off **Start at Login** first, or delete `~/Library/LaunchAgents/com.clipask.app.plist`.
-2. Delete `ClipAsk.app` and `~/Library/Application Support/ClipAsk`.
+2. Delete `ClipAsk.app` and `~/Library/Application Support/ClipAsk`. If you used the one-command install, also delete the `~/.clipask` folder and the ClipAsk lines at the end of `~/.zshrc`.
 3. Remove the "ClipAsk" items in **Keychain Access**.
 4. Remove ClipAsk from the Input Monitoring and Accessibility lists.
