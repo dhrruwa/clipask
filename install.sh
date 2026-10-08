@@ -118,7 +118,7 @@ First time on this Mac:
   1. System Settings → Privacy & Security → Input Monitoring: turn on Terminal.
   2. Same under Accessibility: turn on Terminal.
   3. Open a new Terminal window and type:  clipask   (restarts it with the permissions)
-  4. If you skipped the API key: menu bar → ClipAsk → "Google Gemini API Key…".
+  4. If you skipped the API key: menu bar → ClipAsk → API Keys → "Google Gemini…".
 
 From now on, type  clipask  in any new Terminal window to update and restart it.
 EOF

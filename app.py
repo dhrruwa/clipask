@@ -66,6 +66,10 @@ APP_NAME = "ClipAsk"
 IDLE_TITLE = "ClipAsk"  # shown in the menu bar normally
 THINKING_TITLE = "Thinking…"  # shown while waiting for the AI
 
+# Free providers that can step in when the chosen one is overloaded or
+# rate-limited, in order of preference.
+BACKUP_PROVIDERS = ("groq", "gemini")
+
 OUTPUT_LABELS = {
     "type": "Type It Out",
     "popup": "Show in Popup",
@@ -128,9 +132,17 @@ class ClipAskApp(rumps.App):
             self.output_menu.add(item)
             self.output_items[mode] = item
 
+        self.api_keys_menu = rumps.MenuItem("API Keys")
+        self.api_key_items = {}  # provider id -> its menu item
+        for provider_id, info in ai_client.PROVIDERS.items():
+            item = rumps.MenuItem(f"{info.label}…", callback=self.on_set_api_key)
+            self.api_keys_menu.add(item)
+            self.api_key_items[provider_id] = item
+
         self.speed_item = rumps.MenuItem("Typing Speed…", callback=self.on_change_typing_speed)
         self.model_item = rumps.MenuItem("Model…", callback=self.on_change_model)
-        self.api_key_item = rumps.MenuItem("API Key…", callback=self.on_set_api_key)
+        # An item without a callback is greyed out: it's just information.
+        self.backup_item = rumps.MenuItem("Backup If Busy")
         self.login_item = rumps.MenuItem("Start at Login", callback=self.on_toggle_start_at_login)
 
         self.menu = [
@@ -141,7 +153,8 @@ class ClipAskApp(rumps.App):
             None,
             self.provider_menu,
             self.model_item,
-            self.api_key_item,
+            self.backup_item,
+            self.api_keys_menu,
             rumps.MenuItem("System Prompt…", callback=self.on_edit_system_prompt),
             None,
             self.login_item,
@@ -168,12 +181,34 @@ class ClipAskApp(rumps.App):
             item.state = 1 if provider_id == provider else 0
         self.provider_menu.title = f"Provider: {info.label}"
         self.model_item.title = f"Model: {self.settings.model}…"
-        try:
-            has_key = settings.get_api_key(provider) is not None
-        except settings.SettingsError:
-            has_key = False
-        self.api_key_item.title = f"{info.label} API Key…" + ("" if has_key else "  (not set)")
+
+        for provider_id, item in self.api_key_items.items():
+            label = ai_client.PROVIDERS[provider_id].label
+            item.title = f"{label}…" + ("" if self._has_api_key(provider_id) else "  (not set)")
+        backup = self._backup_provider()
+        if backup:
+            self.backup_item.title = f"Backup If Busy: {ai_client.PROVIDERS[backup].label}"
+        else:
+            self.backup_item.title = "Backup If Busy: none (add a Groq key)"
+
         self.login_item.state = 1 if settings.is_start_at_login_enabled() else 0
+
+    def _has_api_key(self, provider):
+        try:
+            return settings.get_api_key(provider) is not None
+        except settings.SettingsError:
+            return False
+
+    def _backup_provider(self):
+        """
+        The free provider to ask instead when the chosen one is busy, or None.
+        Only free providers are used as backups, so a paid service is never
+        used without you choosing it, and only if its key is saved.
+        """
+        for provider in BACKUP_PROVIDERS:
+            if provider != self.settings.provider and self._has_api_key(provider):
+                return provider
+        return None
 
     # ------------------------------------------------------------------
     # Asking the AI
@@ -224,30 +259,59 @@ class ClipAskApp(rumps.App):
         if not api_key:
             self._show_error(
                 f"No {info.label} API key is saved yet.\n\n"
-                f"Click \"{IDLE_TITLE}\" in the menu bar → \"{info.label} API Key…\" and paste your key.\n\n"
+                f"Click \"{IDLE_TITLE}\" in the menu bar → API Keys → \"{info.label}…\" and paste your key.\n\n"
                 f"You can create a key at {info.key_url}"
             )
             return
+
+        # Who to ask: the chosen provider first, then the backup (if any).
+        attempts = [(provider, self.settings.model, api_key)]
+        backup = self._backup_provider()
+        if backup:
+            try:
+                attempts.append((backup, self.settings.models.get(backup) or ai_client.PROVIDERS[backup].default_model,
+                                 settings.get_api_key(backup)))
+            except settings.SettingsError:
+                pass  # can't read the backup's key: just go without it
 
         self.is_busy = True
         self.title = THINKING_TITLE
         worker = threading.Thread(
             target=self._ask_ai_in_background,
-            args=(provider, self.settings.model, api_key, question, self.settings.system_prompt),
+            args=(attempts, question, self.settings.system_prompt),
             daemon=True,  # don't keep the app alive if you quit while waiting
         )
         worker.start()
 
-    def _ask_ai_in_background(self, provider, model, api_key, question, system_prompt):
-        """Runs on a background thread. Must NOT touch windows or menus."""
+    def _ask_ai_in_background(self, attempts, question, system_prompt):
+        """
+        Runs on a background thread. Must NOT touch windows or menus.
+
+        `attempts` is a list of (provider, model, api_key): the chosen
+        provider, then the backup. The backup is only asked if the first
+        one failed because it was busy (not, say, because of a wrong key).
+        """
+        errors = []
         try:
-            answer = ai_client.ask(provider, model, api_key, question, system_prompt)
-            AppHelper.callAfter(self._finish, answer, False)
-        except ai_client.AIError as error:
-            AppHelper.callAfter(self._finish, str(error), True)
+            for provider, model, api_key in attempts:
+                if errors:  # this is the backup: show that in the menu bar
+                    AppHelper.callAfter(self._set_busy_title, f"Thinking… ({ai_client.PROVIDERS[provider].label})")
+                try:
+                    answer = ai_client.ask(provider, model, api_key, question, system_prompt)
+                    AppHelper.callAfter(self._finish, answer, False)
+                    return
+                except ai_client.AIError as error:
+                    errors.append(str(error))
+                    if not error.can_try_backup:
+                        break
+            AppHelper.callAfter(self._finish, "\n\nThe backup didn't work either:\n\n".join(errors), True)
         except Exception as error:  # a bug: still report it, don't stay stuck on "Thinking…"
             log.exception("Unexpected error while asking the AI")
             AppHelper.callAfter(self._finish, f"Unexpected error: {error!r}", True)
+
+    def _set_busy_title(self, text):
+        if self.is_busy:
+            self.title = text
 
     def _finish(self, text, is_error):
         """Back on the main thread: deliver the answer, or show the error."""
@@ -347,8 +411,9 @@ class ClipAskApp(rumps.App):
         self.settings.models[provider] = text.strip() or info.default_model
         self._save_settings()
 
-    def on_set_api_key(self, _sender):
-        provider = self.settings.provider
+    def on_set_api_key(self, sender):
+        # Which provider's item in the "API Keys" submenu was clicked?
+        provider = next(p for p, item in self.api_key_items.items() if item is sender)
         info = ai_client.PROVIDERS[provider]
         try:
             current_key = settings.get_api_key(provider)
@@ -530,7 +595,7 @@ def ask_for_api_key_in_terminal():
         except (EOFError, KeyboardInterrupt):
             key = ""
         if not key:
-            print(f"Skipped. You can add it later: ClipAsk menu → {info.label} API Key…")
+            print(f"Skipped. You can add it later: ClipAsk menu → API Keys → {info.label}…")
             return
         settings.set_api_key(provider, key)
         print("Saved in this Mac's Keychain.")

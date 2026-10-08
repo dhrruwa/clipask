@@ -2,7 +2,7 @@
 ai_client.py - sends your question to an AI service and returns the answer.
 
 What this module does, in simple words:
-    Each AI company (OpenAI, Anthropic, Google) runs a web address that
+    Each AI company (OpenAI, Anthropic, Google, Groq) runs a web address that
     accepts a question and replies with an answer. Talking to it is just
     an HTTPS request, like a browser loading a page, made with the popular
     `requests` library. The three companies want the question packed in
@@ -67,11 +67,26 @@ PROVIDERS = {
         default_model="gemini-3.6-flash",
         key_url="https://aistudio.google.com/apikey",
     ),
+    "groq": ProviderInfo(
+        label="Groq",
+        default_model="openai/gpt-oss-120b",
+        key_url="https://console.groq.com/keys",
+    ),
 }
 
 
 class AIError(Exception):
-    """Something went wrong. The message is meant to be shown to the user."""
+    """
+    Something went wrong. The message is meant to be shown to the user.
+
+    `can_try_backup` is True when the problem is on the service's side
+    (overloaded, rate-limited, too slow), so asking a different AI service
+    instead might work. It's False for problems like a wrong API key.
+    """
+
+    def __init__(self, message, can_try_backup=False):
+        super().__init__(message)
+        self.can_try_backup = can_try_backup
 
 
 # ---------------------------------------------------------------------------
@@ -111,7 +126,8 @@ def ask(provider, model, api_key, question, system_prompt=""):
     except ValueError:  # the reply wasn't JSON (e.g. an HTML error page)
         data = None
     if response.status_code != 200:
-        raise AIError(_describe_http_error(label, model, response, data))
+        busy = response.status_code == 429 or response.status_code >= 500
+        raise AIError(_describe_http_error(label, model, response, data), can_try_backup=busy)
 
     # Step 3: dig the answer text out of the reply.
     try:
@@ -130,7 +146,8 @@ def _send(label, url, headers, body):
     except requests.exceptions.Timeout:
         raise AIError(
             f"{label} didn't answer within {TIMEOUT_SECONDS} seconds.\n\n"
-            "Try again, ask a shorter question, or choose a faster model."
+            "Try again, ask a shorter question, or choose a faster model.",
+            can_try_backup=True,
         ) from None
     except requests.exceptions.SSLError as error:
         raise AIError(f"The secure connection to {label} failed.\n\nDetails: {error}") from None
@@ -220,11 +237,22 @@ def _gemini_answer(data):
     return "".join(part.get("text", "") for part in parts if not part.get("thought"))
 
 
+# ---------------------------------------------------------------------------
+# Groq  (uses the same request format as OpenAI, at its own address)
+# ---------------------------------------------------------------------------
+
+
+def _groq_request(model, api_key, question, system_prompt):
+    _, headers, body = _openai_request(model, api_key, question, system_prompt)
+    return "https://api.groq.com/openai/v1/chat/completions", headers, body
+
+
 # Which builder/extractor pair belongs to which provider.
 _PROVIDER_FUNCTIONS = {
     "openai": (_openai_request, _openai_answer),
     "anthropic": (_anthropic_request, _anthropic_answer),
     "gemini": (_gemini_request, _gemini_answer),
+    "groq": (_groq_request, _openai_answer),
 }
 
 

@@ -4,7 +4,8 @@ A tiny macOS menu-bar app: copy a question, click where you want the answer, pre
 
 - Lives in the menu bar (no Dock icon). The menu-bar title shows **Thinking…** while it waits for the AI, then **Typing… 0:48** (time left) while it types.
 - Press **⌃⌥A** again to stop typing.
-- Works with **OpenAI**, **Anthropic (Claude)** or **Google Gemini**. You choose in the menu.
+- Works with **Google Gemini** and **Groq** (both have free tiers), or **OpenAI** and **Anthropic (Claude)** (paid). You choose in the menu.
+- If the chosen service is overloaded, ClipAsk automatically asks the other free one (Gemini ↔ Groq), as long as you've saved a key for it.
 - Your API key is stored in the **macOS Keychain**, never in a plain file.
 - Errors always appear in a small floating window, never typed into your document. The window scrolls if the text is long. **Esc** closes it, **⌘C** or the **Copy** button copies it.
 
@@ -25,7 +26,7 @@ Once per Mac, after the first run:
 
 1. **System Settings → Privacy & Security → Input Monitoring**: turn on **Terminal**. Do the same under **Accessibility**.
 2. Open a new Terminal window and type `clipask` to restart ClipAsk with the permissions.
-3. If you skipped the API key, click **ClipAsk** in the menu bar → **Google Gemini API Key…** and paste it there.
+3. If you skipped the API key, click **ClipAsk** in the menu bar → **API Keys** → **Google Gemini…** and paste it there.
 
 Each Mac keeps its own copy of the key in its own Keychain, so you paste it once per Mac. A handy place to keep the key is Apple's **Passwords** app, which syncs it across your Macs through iCloud. Never put the key in the GitHub repo: it's public.
 
@@ -102,11 +103,12 @@ ClipAsk sees every key press, because that's the only way a global shortcut can 
 
 ## 3. Add your API key and try it
 
-1. Click **ClipAsk** in the menu bar → **Provider** → choose OpenAI, Anthropic or Gemini.
-2. Click **… API Key…** and paste your key with ⌘V. Get a key here:
+1. Click **ClipAsk** in the menu bar → **Provider** → choose Gemini, Groq, OpenAI or Anthropic.
+2. Click **API Keys** → that provider, and paste your key with ⌘V. Get a key here:
    - OpenAI: <https://platform.openai.com/api-keys>
    - Anthropic: <https://console.anthropic.com/settings/keys>
-   - Gemini: <https://aistudio.google.com/apikey>
+   - Gemini (free): <https://aistudio.google.com/apikey>
+   - Groq (free): <https://console.groq.com/keys>
 3. Select a question anywhere and press **⌘C**. Text copied on your iPhone works too, through Apple's Universal Clipboard.
 4. Click where you want the answer, for example an empty note or document.
 5. Press **⌃⌥A** and take your hands off the keyboard.
@@ -131,8 +133,9 @@ The menu bar shows **Thinking…**, then **Typing… 0:48** while the answer is 
 | **Answer Output** | **Type It Out** (default) types the answer where your cursor is. **Show in Popup** shows it in the floating window. |
 | **Typing Speed: … WPM** | How fast answers are typed, in words per minute (5 to 300). Default 25. |
 | **Provider** | Which AI service to use. Each provider has its own saved key and model. |
-| **Model: …** | The model name. Defaults: `gpt-5.4-mini` (OpenAI), `claude-sonnet-5-5` (Anthropic), `gemini-3.6-flash` (Gemini). Model names change over time; if you get a "model wasn't found" error, look up a current name on the provider's website and type it here. Leave it empty to return to the default. |
-| **… API Key…** | Save or replace the key for the current provider. It shows the last 4 characters of the saved key so you can tell which one it is. |
+| **Model: …** | The model name. Defaults: `gpt-5.4-mini` (OpenAI), `claude-sonnet-5-5` (Anthropic), `gemini-3.6-flash` (Gemini), `openai/gpt-oss-120b` (Groq). Model names change over time; if you get a "model wasn't found" error, look up a current name on the provider's website and type it here. Leave it empty to return to the default. |
+| **Backup If Busy: …** | Information only. Shows which free provider ClipAsk asks instead when the chosen one is overloaded (see below). |
+| **API Keys** | Save or replace the key for any provider. Each shows "(not set)" until a key is saved; the dialog shows the last 4 characters of a saved key so you can tell which one it is. |
 | **System Prompt…** | Optional instructions sent with every question. The default asks for short plain-text answers (so no Markdown symbols like `**` get typed), and for code questions, only the code. Clear it to send none. Option+Return adds a new line. |
 | **Start at Login** | Starts ClipAsk automatically when you log in (see below). |
 | **Quit ClipAsk** | Stops the app. |
@@ -148,6 +151,8 @@ Every problem is shown in the popup in red, never typed into your document, inst
 - **API errors**: wrong key, unknown model, out of credit or rate-limited, service down. The provider's own error message is shown under "Details".
 
 When a provider replies that it's overloaded ("high demand", HTTP 503), ClipAsk waits and tries again twice (after 1 and 3 seconds) before showing the error. These overloads often hit one model at a time, so if the error keeps coming back, choose a different model in the menu.
+
+**Backup provider.** If the chosen provider is still overloaded after those retries, rate-limits you (HTTP 429), or takes longer than 20 seconds, ClipAsk asks a backup instead: Groq when you use Gemini, Gemini when you use Groq. While it does, the menu bar shows **Thinking… (Groq)**. Only these two free providers are used as backups, and only if their key is saved (**API Keys** in the menu). A wrong key or model name doesn't trigger the backup, so you still see those mistakes.
 
 ### Where things are saved
 
